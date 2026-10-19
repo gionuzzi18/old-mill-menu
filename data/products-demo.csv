@@ -1,0 +1,31 @@
+id,category,name,description,price,visible,available,sortOrder,image,allergens
+caffetteria-espresso,Caffetteria,Espresso,Caffè arabica intenso con schiuma cremosa e finale delicato.,"2,50",TRUE,TRUE,1,,
+caffetteria-cappuccino,Caffetteria,Cappuccino,"Latte montato, cacao e nota di vaniglia perfetta per la pausa.","4,50",TRUE,TRUE,2,,Latte
+caffetteria-macchiato,Caffetteria,Caffè Macchiato,Espresso morbido con un soffio di latte fresco.,"3,20",TRUE,TRUE,3,,Latte
+caffetteria-americano,Caffetteria,Caffè Americano,"Espresso lungo e dal gusto rotondo, perfetto tra una chiacchierata e l’altra.","3,80",TRUE,TRUE,4,,
+caffetteria-marocchino,Caffetteria,Marocchino,"Caffè, cioccolato e panna montata con un tocco di cacao.","4,80",TRUE,TRUE,5,,Latte
+colazione-cornetto-classico,Colazione e Pasticceria,Cornetto Classico,"Sfogliato dorato, fragrante e perfetto con il caffè di prima mattina.","2,80",TRUE,TRUE,1,https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80,Glutine; Latte
+colazione-cornetto-crema,Colazione e Pasticceria,Cornetto Crema,Pasticceria soffice con crema pasticcera appena preparata.,"3,20",TRUE,TRUE,2,https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=900&q=80,Glutine; Latte
+colazione-cornetto-pistacchio,Colazione e Pasticceria,Cornetto Pistacchio,Crema al pistacchio e sfoglia lievemente croccante.,"3,70",TRUE,TRUE,3,,Glutine; Latte; Arachidi
+colazione-croissant-burro,Colazione e Pasticceria,Croissant al Burro,"Laminato, dorato e intenso, ideale con una seconda colazione lenta.","3,80",TRUE,TRUE,4,https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=900&q=80,Glutine; Latte
+colazione-tiramisu,Colazione e Pasticceria,Tiramisù Classico,"Mascarpone, caffè e cacao in un equilibrio perfetto.","7,50",TRUE,TRUE,5,https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=900&q=80,Uova; Latte; Glutine
+gelateria-coppetta-piccola,Gelateria,Coppetta Piccola,"Scelta di gusto delicata e cremosa, perfetta in una pausa veloce.","4,50",TRUE,TRUE,1,,Latte
+gelateria-coppetta-media,Gelateria,Coppetta Media,Porzione generosa con gusto intenso e texture vellutata.,"6,20",TRUE,TRUE,2,https://images.unsplash.com/photo-1570197788417-0e823ef4b637?auto=format&fit=crop&w=900&q=80,Latte; Nocciole
+gelateria-cono-piccolo,Gelateria,Cono Piccolo,"Classico cono croccante, semplice e perfettamente equilibrato.","3,80",TRUE,TRUE,3,,Latte; Glutine
+gelateria-cono-medio,Gelateria,Cono Medio,"Cono da gustare lentamente, con crema morbida e fragranza fresca.","5,00",TRUE,TRUE,4,,Latte; Glutine
+gelateria-affogato-caffe,Gelateria,Affogato al Caffè,Gelato alla crema con caffè espresso e profumo intenso.,"5,80",TRUE,TRUE,5,https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80,Latte
+aperitivi-spritz-classico,Aperitivi,Spritz Classico,"Prosecco, aperitivo e scorza d’arancia per un inizio elegante.","8,50",TRUE,TRUE,1,https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=900&q=80,
+aperitivi-americano,Aperitivi,Americano,"Bitter, soda e scorza di arancia per un gusto asciutto e aromatico.","8,00",TRUE,TRUE,2,,
+aperitivi-negroni-sbagliato,Aperitivi,Negroni Sbagliato,"Cioccolato, dolcezza e amaro in un bilanciamento perfetto.","9,50",TRUE,TRUE,3,,
+aperitivi-hugo,Aperitivi,Hugo,"Menta, fiori di sambuco e spuma fresca per un gusto leggero.","8,80",TRUE,TRUE,4,,
+aperitivi-gin-tonic-basic,Aperitivi,Gin Tonic Basic,"Gin, tonic e limone con un profilo pulito e rinfrescante.","9,00",TRUE,TRUE,5,,
+food-piadina-crudo-mozzarella,Food,Piadina Crudo e Mozzarella,"Prosciutto crudo, mozzarella e rucola con una sfoglia morbida.","12,00",TRUE,TRUE,1,https://images.unsplash.com/photo-1529006557810-274b9b2fc783?auto=format&fit=crop&w=900&q=80,Glutine; Latte
+food-piadina-bresaola-rucola,Food,Piadina Bresaola e Rucola,"Bresaola, rucola e formaggio con un gusto deciso e aromatico.","12,50",TRUE,TRUE,2,,Glutine; Latte
+food-toast-prosciutto-formaggio,Food,Toast Prosciutto e Formaggio,"Pane tostato, prosciutto e formaggio con una crosta dorata.","10,50",TRUE,TRUE,3,,Glutine; Latte
+food-club-sandwich,Food,Club Sandwich,"Pollo, formaggio, lattuga e pomodoro in un panino ben strutturato.","13,00",TRUE,TRUE,4,,Glutine; Latte
+food-tagliere-misto,Food,Tagliere Misto,"Salumi, formaggi e bruschette per condividere in tavola.","18,00",TRUE,TRUE,5,https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80,Latte; Glutine
+cocktail-mojito,Cocktail,Mojito,"Menta, lime e soda con un equilibrio fresco ed esuberante.","9,00",TRUE,TRUE,1,https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=900&q=80,
+cocktail-moscow-mule,Cocktail,Moscow Mule,"Vodka, lime e ginger beer con un finale perlinato.","10,50",TRUE,TRUE,2,,
+cocktail-gin-tonic-premium,Cocktail,Gin Tonic Premium,"Gin di qualità, tonic e scorza di limone con botanicals fini.","11,00",TRUE,TRUE,3,,
+cocktail-espresso-martini,Cocktail,Espresso Martini,"Espresso, vodka e crema di caffè per un finale liscio.","12,00",TRUE,TRUE,4,,Latte
+cocktail-sex-on-the-beach,Cocktail,Sex on the Beach,"Arancia, succo di pesca e vodka con un finale molto fruttato.","11,50",TRUE,TRUE,6,,

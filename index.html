@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Old Mill - Menù digitale di pasticceria, caffetteria, gelateria e food & more." />
+    <meta name="theme-color" content="#3d2517" />
+    <title>Old Mill | Menu Digitale</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-wrap" aria-label="Old Mill logo">
+          <img class="brand-logo" src="logo-transparent.png" alt="Old Mill" />
+        </div>
+      </header>
+
+      <nav class="category-bar" aria-label="Navigazione categorie">
+        <div id="category-bar" class="category-bar__inner" role="tablist" aria-label="Menu categories"></div>
+      </nav>
+
+      <main class="menu-layout" id="main-content">
+        <section id="catalog" class="catalog" aria-live="polite"></section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="footer-divider" aria-hidden="true"></div>
+        <div class="footer-copy">
+          <p class="footer-title">Old Mill</p>
+          <p class="footer-text">Pasticceria • Caffetteria • Gelateria • Food & More</p>
+          <p class="footer-text">Altamura (BA)</p>
+        </div>
+      </footer>
+    </div>
+
+    <div id="status-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="config.js"></script>
+    <script src="dataAdapter.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
