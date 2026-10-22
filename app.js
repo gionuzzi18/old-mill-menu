@@ -1,11 +1,18 @@
 const DEFAULT_CONFIG = {
-  dataMode: 'demo',
+  dataMode: 'google-sheets',
   productsFile: 'data/products.json',
-  googleSheetsUrl: '',
-  googleSheetsCsvUrl: '',
+  googleSheetsUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2DtC7AWHz8y7Z3bvztl6SDkXBtz77UNm9wyR-RAyoKMiubPleYRPjvo6eC759I-1TOOvJF6YrFqk7/pub?gid=0&single=true&output=csv',
+  googleSheetsCsvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR2DtC7AWHz8y7Z3bvztl6SDkXBtz77UNm9wyR-RAyoKMiubPleYRPjvo6eC759I-1TOOvJF6YrFqk7/pub?gid=0&single=true&output=csv',
   proxyUrl: '',
   appName: 'Old Mill',
   showDemoLabels: true,
+};
+
+const MACRO_GROUPS = {
+  Dolci: ['Caffetteria', 'Colazione', 'Pasticceria', 'Gelateria'],
+  Salato: ['Rosticceria', 'Piadine e Pucce'],
+  Bevande: ['Soft Drink', 'Cioccolate Calde', 'Tè e Infusi'],
+  Alcolici: ['Cocktail', 'Amari', 'Cognac e Brandy', 'Whisky', 'Rum', 'Grappe'],
 };
 
 const config = { ...DEFAULT_CONFIG, ...(window.OLD_MILL_CONFIG || {}) };
@@ -20,171 +27,199 @@ const {
 } = window.OldMillDataAdapter || {};
 
 const catalogEl = document.getElementById('catalog');
+const macroGroupBarEl = document.getElementById('macro-group-bar');
 const categoryBarEl = document.getElementById('category-bar');
 const statusEl = document.getElementById('status-region');
 
-let currentCategory = null;
 let allProducts = [];
-let categorySections = [];
-let navFrame = null;
+let allCategories = [];
+let activeState = {
+  activeGroup: 'Dolci',
+  activeCategory: 'Caffetteria',
+  expandedCategory: 'Caffetteria',
+};
+let pendingCategoryScroll = null;
+let pendingCategoryScrollFrame = null;
+
+const GRAPPE_SUBSECTIONS = {
+  Barrique: [
+    'grappe-18-lune',
+    'grappe-castagner-amarone',
+    'grappe-903-barricata',
+    'grappe-poli-24-carati-oro',
+  ],
+  Chiara: [
+    'grappe-poli-classica',
+    'grappe-903-tipica',
+    'grappe-nardini',
+    'grappe-julia',
+    'grappe-friulana',
+  ],
+};
 
 function setStatus(message) {
   if (!statusEl) return;
   statusEl.textContent = message;
 }
 
-function getStickyOffset() {
-  const topbar = document.querySelector('.topbar');
-  const categoryBar = document.querySelector('.category-bar');
-  return (topbar ? topbar.offsetHeight : 0) + (categoryBar ? categoryBar.offsetHeight : 0) + 10;
+function normalizeGroupKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
-function setActiveCategory(categoryName, { scrollIntoView = false } = {}) {
-  if (!categoryName || !categoryBarEl) return;
+function resolveCategoryGroup(categoryName) {
+  if (!categoryName) return 'Altro';
 
-  currentCategory = categoryName;
-  const categoryId = slugify(categoryName);
+  const key = normalizeGroupKey(categoryName);
+  const aliasMap = new Map();
 
-  categoryBarEl.querySelectorAll('.category-pill').forEach((button) => {
-    const isActive = button.dataset.categoryId === categoryId;
-    button.classList.toggle('is-active', isActive);
-    button.setAttribute('aria-selected', String(isActive));
-    button.tabIndex = isActive ? 0 : -1;
+  Object.entries(MACRO_GROUPS).forEach(([groupName, items]) => {
+    items.forEach((item) => aliasMap.set(normalizeGroupKey(item), groupName));
   });
 
-  if (scrollIntoView) {
-    const activeButton = categoryBarEl.querySelector(`.category-pill[data-category-id="${categoryId}"]`);
-    if (activeButton) {
-      activeButton.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
-    }
+  aliasMap.set('cioccolata calda', 'Bevande');
+  aliasMap.set('cioccolate calde', 'Bevande');
+  aliasMap.set('cioccolate calda', 'Bevande');
+  aliasMap.set('te e infusi', 'Bevande');
+  aliasMap.set('te infusi', 'Bevande');
+
+  return aliasMap.get(key) || 'Altro';
+}
+
+function buildMacroGroups(categories) {
+  const groups = [];
+  const usedCategoryNames = new Set();
+
+  Object.entries(MACRO_GROUPS).forEach(([groupName, items]) => {
+    const groupCategories = categories.filter((category) => items.includes(category.name));
+    if (!groupCategories.length) return;
+
+    groupCategories.forEach((category) => usedCategoryNames.add(category.name));
+    groups.push({ name: groupName, categories: groupCategories });
+  });
+
+  const otherCategories = categories.filter((category) => !usedCategoryNames.has(category.name));
+  if (otherCategories.length) {
+    groups.push({ name: 'Altro', categories: otherCategories });
   }
+
+  return groups;
+}
+
+function getGroupCategories(groupName, categories) {
+  const groups = buildMacroGroups(categories);
+  const match = groups.find((group) => group.name === groupName);
+  return match ? match.categories : [];
+}
+
+function renderMacroGroupChips(groups) {
+  if (!macroGroupBarEl || !groups.length) return;
+
+  const selectedGroup = groups.some((group) => group.name === activeState.activeGroup)
+    ? activeState.activeGroup
+    : groups[0].name;
+
+  activeState.activeGroup = selectedGroup;
+
+  macroGroupBarEl.innerHTML = groups.map((group) => `
+    <button type="button" class="macro-chip ${group.name === selectedGroup ? 'is-active' : ''}" data-group-name="${group.name}" role="tab" aria-selected="${group.name === selectedGroup}" tabindex="${group.name === selectedGroup ? 0 : -1}">${group.name}</button>
+  `).join('');
 }
 
 function renderCategoryChips(categories) {
   if (!categoryBarEl) return;
 
-  if (!categories.length) {
-    currentCategory = null;
+  const visibleCategories = categories && categories.length ? categories : allCategories;
+  if (!visibleCategories.length) {
     categoryBarEl.innerHTML = '';
     return;
   }
 
-  const firstCategory = currentCategory || categories[0].name;
-  currentCategory = firstCategory;
+  const chosenCategory = visibleCategories.some((category) => category.name === activeState.activeCategory)
+    ? activeState.activeCategory
+    : visibleCategories[0].name;
 
-  categoryBarEl.innerHTML = categories.map((category) => {
-    const slug = slugify(category.name);
-    const isActive = category.name === firstCategory;
-    return `
-      <button
-        type="button"
-        class="category-pill ${isActive ? 'is-active' : ''}"
-        role="tab"
-        aria-selected="${isActive}"
-        data-category-name="${category.name}"
-        data-category-id="${slug}"
-        tabindex="${isActive ? 0 : -1}"
-      >
-        ${category.name}
-      </button>
-    `;
-  }).join('');
+  activeState.activeCategory = chosenCategory;
+  if (!activeState.expandedCategory || !visibleCategories.some((category) => category.name === activeState.expandedCategory)) {
+    activeState.expandedCategory = chosenCategory;
+  }
 
-  categoryBarEl.querySelectorAll('.category-pill').forEach((button) => {
-    button.addEventListener('click', () => {
-      const selectedCategory = button.dataset.categoryName;
-      if (!selectedCategory) return;
-
-      setActiveCategory(selectedCategory, { scrollIntoView: true });
-
-      const target = document.getElementById(`section-${slugify(selectedCategory)}`);
-      if (target) {
-        const top = target.getBoundingClientRect().top + window.scrollY - getStickyOffset() - 8;
-        window.scrollTo({ top, behavior: 'smooth' });
-      }
-    });
-  });
-
-  setActiveCategory(firstCategory, { scrollIntoView: true });
+  categoryBarEl.innerHTML = visibleCategories.map((category) => `
+    <button type="button" class="category-pill ${category.name === chosenCategory ? 'is-active' : ''}" role="tab" aria-selected="${category.name === chosenCategory}" data-category-name="${category.name}" data-category-id="${slugify(category.name)}" tabindex="${category.name === chosenCategory ? 0 : -1}">${category.name}</button>
+  `).join('');
 }
 
-function buildProductCard(product) {
-  const hasImage = Boolean(product.image && product.image.trim());
+function setSectionExpanded(sectionName, shouldOpen) {
+  const sections = document.querySelectorAll('.category-section');
+  const nextOpen = shouldOpen ? sectionName : null;
+  activeState.expandedCategory = nextOpen;
 
-  return `
-    <article class="product-card ${hasImage ? 'has-image' : 'no-image'}" aria-label="${product.name}">
-      ${hasImage ? `
-        <div class="product-image-shell">
-          <img
-            src="${product.image}"
-            alt="${product.name}"
-            class="product-image"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            onerror="this.onerror=null;this.style.display='none';"
-          />
-        </div>
-      ` : ''}
+  sections.forEach((section) => {
+    const isTarget = section.dataset.categoryName === sectionName;
+    const isOpen = shouldOpen && isTarget;
+    const toggle = section.querySelector('.section-toggle');
+    const body = section.querySelector('.section-body');
 
-      <div class="product-info">
-        <div class="product-header">
-          <h3 class="product-name">${product.name}</h3>
-        </div>
-
-        ${product.description ? `<p class="product-description">${product.description}</p>` : ''}
-
-        ${product.allergens && product.allergens.length ? `<p class="product-allergens">Allergeni: ${product.allergens.join(', ')}</p>` : ''}
-      </div>
-
-      <div class="product-price">
-        <span class="price-tag">${priceToString(product.price)}</span>
-      </div>
-    </article>
-  `;
-}
-
-function updateActiveCategoryFromScroll() {
-  if (!categorySections.length) return;
-
-  const scrollPosition = window.scrollY + getStickyOffset() + 12;
-  const isNearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 24;
-
-  let selectedSection = categorySections[0];
-
-  if (isNearBottom) {
-    selectedSection = categorySections[categorySections.length - 1];
-  } else {
-    for (const section of categorySections) {
-      if (section.offsetTop <= scrollPosition) {
-        selectedSection = section;
-      } else {
-        break;
-      }
+    section.classList.toggle('is-open', isOpen);
+    if (toggle) {
+      toggle.classList.toggle('is-open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
     }
-  }
-
-  const selectedCategoryName = selectedSection?.dataset.categoryName || currentCategory;
-  if (selectedCategoryName && selectedCategoryName !== currentCategory) {
-    setActiveCategory(selectedCategoryName, { scrollIntoView: false });
-  }
-}
-
-function scheduleCategorySync() {
-  if (navFrame) return;
-  navFrame = window.requestAnimationFrame(() => {
-    navFrame = null;
-    updateActiveCategoryFromScroll();
+    if (body) {
+      body.hidden = !isOpen;
+      body.classList.toggle('is-open', isOpen);
+    }
   });
 }
 
-function refreshCategorySections() {
-  categorySections = [...document.querySelectorAll('.category-section')].filter((section) => section.id);
+function getStickyNavigationHeight() {
+  const stickyEl = document.querySelector('.sticky-nav');
+  return stickyEl ? stickyEl.getBoundingClientRect().height : 0;
+}
+
+function scheduleCategoryPosition(categoryName, forceReveal = false) {
+  if (!categoryName || !catalogEl) return;
+
+  pendingCategoryScroll = categoryName;
+  if (pendingCategoryScrollFrame) {
+    cancelAnimationFrame(pendingCategoryScrollFrame);
+  }
+
+  pendingCategoryScrollFrame = requestAnimationFrame(() => {
+    const targetSection = [...document.querySelectorAll('.category-section')].find((entry) => entry.dataset.categoryName === pendingCategoryScroll);
+    if (!targetSection) return;
+
+    const stickyOffset = getStickyNavigationHeight() + 10;
+    const sectionTop = targetSection.offsetTop || (targetSection.getBoundingClientRect().top + window.scrollY);
+    const nextTop = Math.max(0, sectionTop - stickyOffset);
+    const shouldAdjust = forceReveal || nextTop < window.scrollY || nextTop > window.scrollY + 8;
+
+    if (shouldAdjust && Math.abs(window.scrollY - nextTop) > 2) {
+      window.scrollTo({ top: nextTop, left: 0, behavior: 'auto' });
+    }
+
+    pendingCategoryScrollFrame = null;
+    pendingCategoryScroll = null;
+  });
+}
+
+function getGrappeSubsection(product) {
+  if (!product || product.category !== 'Grappe') return 'Altro';
+
+  const productId = String(product.id || '').trim();
+  const subsection = Object.entries(GRAPPE_SUBSECTIONS).find(([, ids]) => ids.includes(productId));
+  return subsection ? subsection[0] : 'Altro';
 }
 
 function renderCatalog(categories) {
-  const visibleCategories = categories.filter((category) => category.products.length > 0);
+  const baseCategories = categories.filter((category) => category.products.length > 0);
 
-  if (!visibleCategories.length) {
+  if (!baseCategories.length) {
     catalogEl.innerHTML = `
       <div class="empty-state" role="status">
         <strong>Nessun prodotto disponibile</strong>
@@ -195,31 +230,123 @@ function renderCatalog(categories) {
     return;
   }
 
-  catalogEl.innerHTML = visibleCategories.map((category) => {
+  const visibleCategories = getGroupCategories(activeState.activeGroup, baseCategories);
+  const displayCategories = visibleCategories.length ? visibleCategories : baseCategories;
+
+  if (!displayCategories.some((category) => category.name === activeState.activeCategory)) {
+    activeState.activeCategory = displayCategories[0].name;
+  }
+
+  if (!activeState.expandedCategory || !displayCategories.some((category) => category.name === activeState.expandedCategory)) {
+    activeState.expandedCategory = activeState.activeCategory;
+  }
+
+  catalogEl.innerHTML = displayCategories.map((category) => {
     const filteredProducts = sortProducts(category.products).filter((product) => product.visible);
+    const sectionId = `section-${slugify(category.name)}`;
+    const isOpen = category.name === activeState.expandedCategory;
+
+    if (category.name === 'Grappe') {
+      const subgroupEntries = Object.keys(GRAPPE_SUBSECTIONS).map((label) => ({
+        label,
+        products: filteredProducts.filter((product) => getGrappeSubsection(product) === label),
+      }));
+
+      const fallbackProducts = filteredProducts.filter((product) => !Object.values(GRAPPE_SUBSECTIONS).flat().includes(String(product.id || '')));
+      if (fallbackProducts.length) {
+        subgroupEntries.push({ label: 'Altro', products: fallbackProducts });
+      }
+
+      return `
+        <section id="${sectionId}" class="category-section ${isOpen ? 'is-open' : ''}" data-category-name="${category.name}">
+          <button type="button" class="section-toggle ${isOpen ? 'is-open' : ''}" aria-expanded="${isOpen}" aria-controls="body-${sectionId}"><span class="category-title">${category.name}</span><span class="section-arrow" aria-hidden="true">▾</span></button>
+          <div id="body-${sectionId}" class="section-body ${isOpen ? 'is-open' : ''}" ${isOpen ? '' : 'hidden'}>
+            <div class="grappe-groups">
+              ${subgroupEntries.filter((entry) => entry.products.length).map((entry) => `
+                <div class="grappe-subgroup">
+                  <div class="grappe-subgroup__title">${entry.label}</div>
+                  <div class="product-list">
+                    ${entry.products.map(buildProductCard).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      `;
+    }
 
     return `
-      <section id="section-${slugify(category.name)}" class="category-section" data-category-name="${category.name}">
-        <div class="category-header">
-          <h2 class="category-title">${category.name}</h2>
-        </div>
-
-        <div class="product-list">
-          ${filteredProducts.map(buildProductCard).join('')}
+      <section id="${sectionId}" class="category-section ${isOpen ? 'is-open' : ''}" data-category-name="${category.name}">
+        <button type="button" class="section-toggle ${isOpen ? 'is-open' : ''}" aria-expanded="${isOpen}" aria-controls="body-${sectionId}"><span class="category-title">${category.name}</span><span class="section-arrow" aria-hidden="true">▾</span></button>
+        <div id="body-${sectionId}" class="section-body ${isOpen ? 'is-open' : ''}" ${isOpen ? '' : 'hidden'}>
+          <div class="product-list">
+            ${filteredProducts.map(buildProductCard).join('')}
+          </div>
         </div>
       </section>
     `;
-  }).join('') + `
-    <div class="menu-note" role="note">
-      Informazioni allergeni: da verificare e confermare con il gestore prima della pubblicazione definitiva.
-    </div>
-  `;
+  }).join('');
 
-  refreshCategorySections();
-  updateActiveCategoryFromScroll();
+  catalogEl.insertAdjacentHTML('beforeend', `
+    <div class="menu-note menu-note--allergens" role="note">
+      <div class="menu-note__title">ALLERGENI</div>
+      <p>Per informazioni sulla presenza di sostanze o prodotti che possono provocare allergie o intolleranze, si invita la gentile clientela a rivolgersi al personale di sala per consultare il libro degli allergeni.</p>
+    </div>
+  `);
+
+  renderMacroGroupChips(buildMacroGroups(baseCategories));
+  renderCategoryChips(getGroupCategories(activeState.activeGroup, baseCategories));
+  setSectionExpanded(activeState.expandedCategory, Boolean(activeState.expandedCategory));
+  scheduleCategoryPosition(activeState.activeCategory);
+}
+
+function buildProductCard(product) {
+  const hasSinglePrice = typeof product.price !== 'undefined' && product.price !== null && Number.isFinite(product.price);
+  const hasMultiPrice = typeof product.priceMezzo !== 'undefined' && product.priceMezzo !== null && Number.isFinite(product.priceMezzo)
+    && typeof product.priceIntero !== 'undefined' && product.priceIntero !== null && Number.isFinite(product.priceIntero);
+
+  const description = String(product.description || '').trim();
+  const variant = String(product.variant || '').trim();
+  const catalogNumber = String(product.catalogNumber ?? '').trim();
+  const normalizedName = String(product.name || '').trim();
+  const hasExplicitNumberPrefix = /^\s*(numero\s*\d+|n\.?\s*\d+)\s*$/i.test(normalizedName)
+    || /^\s*\d+\s*[-–—]\s*numero\s*\d+\s*$/i.test(normalizedName);
+  const productLabel = catalogNumber && !hasExplicitNumberPrefix ? `${catalogNumber} — ${normalizedName}` : normalizedName;
+  const isTea = product.category === 'Tè e Infusi';
+
+  const descriptionText = isTea ? (description || variant) : (description && description !== variant ? description : '');
+  const variantText = isTea ? '' : variant;
+
+  return `
+    <article class="product-card" aria-label="${product.name}">
+      <div class="product-main">
+        <div class="product-header">
+          <h3 class="product-name">${productLabel}</h3>
+        </div>
+        ${descriptionText ? `<p class="product-description">${descriptionText}</p>` : ''}
+        ${variantText ? `<p class="product-variant">${variantText}</p>` : ''}
+      </div>
+      <div class="product-price">
+        ${hasMultiPrice ? `
+          <div class="multi-price">
+            <div class="multi-price__labels">
+              <span>Mezzo</span>
+              <span>Intero</span>
+            </div>
+            <div class="multi-price__values">
+              <span>${priceToString(product.priceMezzo)}</span>
+              <span>${priceToString(product.priceIntero)}</span>
+            </div>
+          </div>
+        ` : `<span class="price-tag">${hasSinglePrice ? priceToString(product.price) : '—'}</span>`}
+      </div>
+    </article>
+  `;
 }
 
 function renderLoadingState() {
+  if (!catalogEl) return;
   catalogEl.innerHTML = `
     <div class="loading-state" role="status">
       <strong>Caricamento menu</strong>
@@ -229,6 +356,7 @@ function renderLoadingState() {
 }
 
 function renderErrorState(message) {
+  if (!catalogEl) return;
   catalogEl.innerHTML = `
     <div class="error-state" role="alert">
       <strong>Menu momentaneamente non disponibile</strong>
@@ -253,25 +381,24 @@ async function loadMenu() {
     const visibleProducts = products.filter((product) => product.visible);
     if (!visibleProducts.length) {
       renderCatalog([]);
-      renderCategoryChips([]);
       return;
     }
 
     allProducts = visibleProducts;
-    const categories = getAvailableCategories(allProducts);
-    renderCategoryChips(categories);
-    renderCatalog(categories);
-    setStatus(`Menu caricato: ${visibleProducts.length} prodotti in ${categories.length} categorie.`);
+    allCategories = getAvailableCategories(allProducts);
+    activeState = {
+      activeGroup: 'Dolci',
+      activeCategory: 'Caffetteria',
+      expandedCategory: 'Caffetteria',
+    };
+    renderCatalog(allCategories);
+    setStatus(`Menu caricato: ${visibleProducts.length} prodotti in ${allCategories.length} categorie.`);
   } catch (error) {
     console.error('loadMenu failed', error);
     setStatus('Errore durante il caricamento del menu.');
 
     if (getAcceptableDataSource(config) === 'google-sheets') {
-      const message = error && error.message ? error.message : 'Il foglio Google non è raggiungibile.';
-      renderErrorState(
-        'Il file Google non è raggiungibile. Verifica il link CSV pubblico, la pubblicazione del foglio e il CORS/redirect. Se serve, usa il proxy Cloudflare Pages in sola lettura.'
-      );
-      console.warn(message);
+      renderErrorState('Il file Google non è raggiungibile. Verifica il link CSV pubblico, la pubblicazione del foglio e il CORS/redirect.');
       return;
     }
 
@@ -280,7 +407,68 @@ async function loadMenu() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  if (macroGroupBarEl) {
+    macroGroupBarEl.addEventListener('click', (event) => {
+      const button = event.target.closest('.macro-chip');
+      if (!button) return;
+      const groupName = button.dataset.groupName;
+      if (!groupName) return;
+
+      const groupCategories = getGroupCategories(groupName, allCategories);
+      const targetCategory = groupCategories[0]?.name || allCategories[0]?.name;
+      if (!targetCategory) return;
+
+      activeState.activeGroup = groupName;
+      activeState.activeCategory = targetCategory;
+      activeState.expandedCategory = targetCategory;
+      renderCatalog(allCategories);
+      scheduleCategoryPosition(targetCategory);
+    });
+  }
+
+  if (categoryBarEl) {
+    categoryBarEl.addEventListener('click', (event) => {
+      const button = event.target.closest('.category-pill');
+      if (!button) return;
+      const selectedCategory = button.dataset.categoryName;
+      if (!selectedCategory) return;
+
+      const nextGroup = resolveCategoryGroup(selectedCategory);
+      activeState.activeGroup = nextGroup;
+      activeState.activeCategory = selectedCategory;
+      activeState.expandedCategory = selectedCategory;
+      renderCatalog(allCategories);
+      scheduleCategoryPosition(selectedCategory);
+    });
+  }
+
+  if (catalogEl) {
+    catalogEl.addEventListener('click', (event) => {
+      const toggleButton = event.target.closest('.section-toggle');
+      if (!toggleButton) return;
+
+      const sectionEl = toggleButton.closest('.category-section');
+      if (!sectionEl) return;
+
+      const categoryName = sectionEl.dataset.categoryName;
+      if (!categoryName) return;
+
+      const isOpen = activeState.expandedCategory === categoryName;
+      if (isOpen) {
+        activeState.activeCategory = categoryName;
+        activeState.activeGroup = resolveCategoryGroup(categoryName);
+        setSectionExpanded(categoryName, false);
+        scheduleCategoryPosition(categoryName, true);
+        return;
+      }
+
+      activeState.activeCategory = categoryName;
+      activeState.activeGroup = resolveCategoryGroup(categoryName);
+      activeState.expandedCategory = categoryName;
+      setSectionExpanded(categoryName, true);
+      scheduleCategoryPosition(categoryName);
+    });
+  }
+
   loadMenu();
-  window.addEventListener('scroll', scheduleCategorySync, { passive: true });
-  window.addEventListener('resize', scheduleCategorySync);
 });
