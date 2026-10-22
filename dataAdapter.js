@@ -1,16 +1,37 @@
 (function () {
   const CATEGORY_ORDER = [
     'Caffetteria',
-    'Colazione e Pasticceria',
+    'Colazione',
+    'Pasticceria',
     'Gelateria',
-    'Aperitivi',
-    'Food',
+    'Rosticceria',
+    'Piadine e Pucce',
+    'Soft Drink',
+    'Cioccolate Calde',
+    'Tè e Infusi',
     'Cocktail',
+    'Amari',
+    'Cognac e Brandy',
+    'Whisky',
+    'Rum',
+    'Grappe',
   ];
 
   function normalizeCategory(value) {
     const cleanValue = String(value || '').trim();
     return cleanValue || 'Altro';
+  }
+
+  function getCaseInsensitiveValue(record, fieldNames) {
+    if (!record || typeof record !== 'object') return undefined;
+
+    const keys = Object.keys(record);
+    for (const fieldName of fieldNames) {
+      const match = keys.find((key) => key.toLowerCase() === String(fieldName).toLowerCase());
+      if (match !== undefined) return record[match];
+    }
+
+    return undefined;
   }
 
   function slugify(value) {
@@ -33,15 +54,18 @@
   }
 
   function parsePrice(value) {
-    const rawValue = String(value ?? '').trim();
-    if (!rawValue) return 0;
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+
+    const rawValue = String(value).trim();
+    if (!rawValue || rawValue === '-' || rawValue === '—') return null;
 
     const normalized = rawValue
-      .replace(/[€€\s]/g, '')
+      .replace(/[€\s]/g, '')
       .replace(/\u00a0/g, '')
       .trim();
 
-    if (!normalized) return 0;
+    if (!normalized) return null;
 
     const hasComma = normalized.includes(',');
     const hasDot = normalized.includes('.');
@@ -59,8 +83,10 @@
       sanitized = normalized.replace(/,/g, '');
     }
 
+    if (!sanitized || sanitized === '.' || sanitized === '-') return null;
+
     const numericValue = Number(sanitized);
-    return Number.isFinite(numericValue) ? numericValue : 0;
+    return Number.isFinite(numericValue) ? numericValue : null;
   }
 
   function normalizeAllergens(value) {
@@ -167,6 +193,10 @@
 
   function priceToString(value) {
     const numericValue = parsePrice(value);
+    if (numericValue === null || numericValue === undefined) {
+      return '—';
+    }
+
     return new Intl.NumberFormat('it-IT', {
       style: 'currency',
       currency: 'EUR',
@@ -175,22 +205,28 @@
 
   function normalizeProduct(rawProduct, index) {
     const item = rawProduct || {};
-    const category = normalizeCategory(item.category || item.categoria || item.Category || 'Altro');
+    const category = normalizeCategory(
+      getCaseInsensitiveValue(item, ['category', 'categoria', 'Category']) ?? 'Altro'
+    );
 
     return {
-      id: String(item.id || item.ID || `${slugify(category)}-${index + 1}`),
+      id: String(getCaseInsensitiveValue(item, ['id', 'ID']) || `${slugify(category)}-${index + 1}`),
       category,
       categorySlug: slugify(category),
-      name: String(item.name || item.nome || item.Name || 'Prodotto').trim() || 'Prodotto',
-      description: String(item.description || item.descrizione || item.Description || '').trim(),
-      price: parsePrice(item.price ?? item.prezzo ?? item.Prezzo ?? 0),
-      visible: parseBoolean(item.visible ?? item.visibile ?? item.Visible ?? true),
-      available: parseBoolean(item.available ?? item.disponibile ?? item.Available ?? true),
-      sortOrder: Number(item.sortOrder ?? item.ordine ?? item.sort_order ?? item.SortOrder ?? index + 1),
-      image: String(item.image || item.img || item.foto || item.Image || '').trim(),
-      badge: String(item.badge || item.badgeName || item.Badge || '').trim(),
-      allergens: normalizeAllergens(item.allergens ?? item.allergeni ?? item.Allergeni ?? item.allergen ?? ''),
-      featured: Boolean(item.featured || item.consigliato || item.Featured),
+      name: String(getCaseInsensitiveValue(item, ['name', 'nome', 'Name']) || 'Prodotto').trim() || 'Prodotto',
+      description: String(getCaseInsensitiveValue(item, ['description', 'descrizione', 'Description']) || '').trim(),
+      price: parsePrice(getCaseInsensitiveValue(item, ['price', 'prezzo', 'Prezzo']) ?? null),
+      priceMezzo: parsePrice(getCaseInsensitiveValue(item, ['priceMezzo', 'price_mezzo', 'mezzo', 'pricemezzo']) ?? null),
+      priceIntero: parsePrice(getCaseInsensitiveValue(item, ['priceIntero', 'price_intero', 'intero', 'priceintero']) ?? null),
+      visible: parseBoolean(getCaseInsensitiveValue(item, ['visible', 'visibile', 'Visible']) ?? true),
+      available: parseBoolean(getCaseInsensitiveValue(item, ['available', 'disponibile', 'Available']) ?? true),
+      sortOrder: Number(getCaseInsensitiveValue(item, ['sortOrder', 'ordine', 'sort_order', 'SortOrder']) ?? index + 1),
+      image: '',
+      badge: String(getCaseInsensitiveValue(item, ['badge', 'badgeName', 'Badge']) || '').trim(),
+      allergens: normalizeAllergens(getCaseInsensitiveValue(item, ['allergens', 'allergeni', 'Allergeni', 'allergen']) || ''),
+      featured: Boolean(getCaseInsensitiveValue(item, ['featured', 'consigliato', 'Featured'])),
+      variant: String(getCaseInsensitiveValue(item, ['variant', 'variante', 'note', 'variation']) || '').trim(),
+      catalogNumber: String(getCaseInsensitiveValue(item, ['catalogNumber', 'catalog_number', 'numero', 'catalognumber']) || '').trim(),
     };
   }
 
